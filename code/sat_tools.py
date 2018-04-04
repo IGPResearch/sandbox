@@ -77,4 +77,30 @@ def _get_sat_name_options(dundee_folder_url, ext='.png'):
             except KeyError:
                 sat_img_opt[params[2]] = [dict(platform=params[2], channel='_'.join(params[0:2]))]
     return sat_img_opt
-    
+
+
+def download_file(url, save_dir=None, mkdir=True, **req_kw):
+    """
+    Download file using requests
+    """
+    # get request
+    img_req = requests.get(url, **req_kw)
+
+    if img_req.status_code == 200:
+        # save destination
+        if save_dir is None:
+            save_dir = Path('.')
+        else:
+            assert isinstance(save_dir, Path)
+            save_dir.mkdir(parents=True, exist_ok=True)
+        file_name = Path(url).name
+        save_to = save_dir / file_name
+        # open in binary mode
+        with save_to.open('wb') as file:
+            # write to file
+            file.write(img_req.content)
+        return 0
+    else:
+        print('Failed with {} ({})'.format(img_req.status_code,
+                                           img_req.reason))
+        return img_req.status_code
