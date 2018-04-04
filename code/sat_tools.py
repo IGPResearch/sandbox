@@ -4,6 +4,9 @@ Functions to work with satellite imagery
 """
 import cartopy.crs as ccrs
 import rasterio
+from pathlib import Path
+from bs4 import BeautifulSoup
+import requests
 
 
 def read_raster_stereographic(filename):
@@ -48,3 +51,30 @@ def read_raster_stereographic(filename):
         extent = [xmin, xmax, ymin, ymax]
 
     return im, extent, crs
+
+
+def _get_sat_name_options(dundee_folder_url, ext='.png'):
+    """
+    Note: works with old, instrument-wise format
+    
+    TODO: use regex for fname parsing
+    """
+    req_txt = requests.get(dundee_folder_url).text
+    soup = BeautifulSoup(req_txt, 'html.parser')
+    fnames = [Path(node.get('href')) for node in soup.find_all('a') if node.get('href', '').endswith(ext)]
+    combinations = list(set(['_'.join(str(fname.with_suffix('')).split('_')[4:]) for fname in fnames]))
+    sat_img_opt = dict()
+    for comb in combinations:
+        params = comb.split('_')
+        if len(params) == 3:
+            try:
+                sat_img_opt[params[1]].append(dict(platform=params[2], channel=params[0]))
+            except KeyError:
+                sat_img_opt[params[1]] = [dict(platform=params[2], channel=params[0])]
+        elif len(params) == 4:
+            try:
+                sat_img_opt[params[2]].append(dict(platform=params[2], channel='_'.join(params[0:2])))
+            except KeyError:
+                sat_img_opt[params[2]] = [dict(platform=params[2], channel='_'.join(params[0:2]))]
+    return sat_img_opt
+    
