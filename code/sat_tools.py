@@ -15,17 +15,11 @@ import mypaths
 
 URL_BASE = 'http://www.sat.dundee.ac.uk/customers/{project_name}/data/{dt:%Y%m%d}'
 
-INST_WISE_FMT = '{platform}_{instrument}_{channel}_{dt:%Y%m%d_%H%M%S}_mapping6_500.{ext}'
-INST_WISE_RE = r'{platform}_{instrument}_{channel}_([0-9]{{8}}_[0-9]{{6}})_'
-NEW_FMT_DATE = datetime(2018, 3, 6)
-DATE_WISE_FMT = 'mapping6_500_{dt:%Y%m%d_%H%M%S}_{channel}_{instrument}_{platform}.{ext}'
-DATE_WISE_RE = r'_([0-9]{{8}}_[0-9]{{6}})_{channel}_{instrument}_{platform}'
-
 project_name = 'renfrew_afis'
 
 
 def get_avail_sat_img_opt():
-    with (mypaths.sample_dir / 'satellite' / 'sat_img_opt.json').open('r') as f:
+    with (mypaths.sample_dir/'satellite'/'sat_img_opt.json').open('r') as f:
         sat_img_opt = json.load(f)
     return sat_img_opt
 
@@ -39,7 +33,7 @@ def sort_by_timedelta(x, other):
 def get_nearest_url(dt, instrument, channel, platform,
                     project_name=project_name, ext='tif'):
     sat_img_opt = get_avail_sat_img_opt()
-    
+
     opt = sat_img_opt[instrument]
     _d = dict(channel=channel, platform=platform)
     assert _d in opt, ('Combination\n'
@@ -48,14 +42,10 @@ def get_nearest_url(dt, instrument, channel, platform,
                        f'    channel    = {channel}\n'
                        f'is not correct;\n\nAvailable:\n{sat_img_opt}')
     sat_opt = dict(instrument=instrument, **_d)
-    
-    if dt >= NEW_FMT_DATE:
-        filename_mask = DATE_WISE_FMT
-        regex = re.compile(DATE_WISE_RE.format(**sat_opt))
-    else:
-        filename_mask = INST_WISE_FMT
-        regex = re.compile(INST_WISE_RE.format(**sat_opt))
-    
+
+    regex = re.compile(r'^(?=.*_[0-9]{8}_[0-9]{6}_)'
+                       + ''.join([f'(?=.*{v})' for v in sat_opt.values()]))
+
     url_dir = URL_BASE.format(project_name=project_name, dt=dt)
     fnames = url_listdir(url_dir, ext='tif')
     filename = sorted(filter(regex.match,
@@ -69,13 +59,14 @@ def url_listdir(url, ext, parser='html.parser'):
     html = requests.get(url).text
     soup = BeautifulSoup(html, parser)
     return [Path(node.get('href'))
-            for node in soup.find_all('a') if node.get('href', '').endswith(ext)]
+            for node in soup.find_all('a')
+            if node.get('href', '').endswith(ext)]
 
 
 def _get_sat_name_options(dundee_folder_url, ext='.png'):
     """
     Note: works with old, instrument-wise format
-    
+
     TODO: use regex for fname parsing
     """
     fnames = url_listdir(dundee_folder_url, ext)
