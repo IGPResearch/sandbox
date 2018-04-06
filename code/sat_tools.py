@@ -44,7 +44,8 @@ def get_nearest_url(dt, instrument, channel, platform,
     sat_opt = dict(instrument=instrument, **_d)
 
     regex = re.compile(r'^(?=.*_[0-9]{8}_[0-9]{6}_)'
-                       + ''.join([f'(?=.*{v})' for v in sat_opt.values()]))
+                       + ''.join([f'(?=.*{v})' for v in sat_opt.values()])
+                       + '.+')
 
     url_dir = URL_BASE.format(project_name=project_name, dt=dt)
     fnames = url_listdir(url_dir, ext='tif')
@@ -52,7 +53,11 @@ def get_nearest_url(dt, instrument, channel, platform,
                              map(str, fnames)),
                       key=lambda x: sort_by_timedelta(x, dt))[0]
 
-    return f'{url_dir}/{filename}'
+    timestamp = datetime.strptime(re.findall(r'(_[0-9]{8}_[0-9]{6}_)',
+                                             str(filename))[0],
+                                  '_%Y%m%d_%H%M%S_')
+
+    return f'{url_dir}/{filename}', timestamp
 
 
 def url_listdir(url, ext, parser='html.parser'):
@@ -113,7 +118,7 @@ def download_file(url, save_dir=None, mkdir=True, **req_kw):
                                            img_req.reason))
         return img_req.status_code
 
-    
+
 def read_raster_stereographic(filename):
     """
     Read the image and essential metadata from a GeoTIFF file
