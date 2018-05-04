@@ -7,7 +7,7 @@ Borrows some functions from arke library
 from arke.cart import (get_xy_ticks, add_coastline,
                        _lambert_xticks, _lambert_yticks)
 import cartopy.crs as ccrs
-from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER 
+from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
 def ukmo_igp_map(fig, subplot_grd=111,
@@ -15,7 +15,7 @@ def ukmo_igp_map(fig, subplot_grd=111,
                  ticks=[5, 1], coast=None, **gridline_kw):
     """
     Create axes the Stereographic projection in a given figure
-    
+
     Defaults to plots like UK Met Office supplied for the IGP campaign
     Parameters
     ----------

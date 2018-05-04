@@ -30,6 +30,33 @@ def sort_by_timedelta(x, other):
     return abs(_x - other).total_seconds()
 
 
+def get_nearest_zfile(zip_obj, dt, instrument, channel, platform,
+                      ext='tif'):
+    sat_img_opt = get_avail_sat_img_opt()
+
+    opt = sat_img_opt[instrument]
+    _d = dict(channel=channel, platform=platform)
+    assert _d in opt, ('Combination\n'
+                       f'    instrument = {instrument}\n'
+                       f'    platform   = {platform}\n'
+                       f'    channel    = {channel}\n'
+                       f'is not correct;\n\nAvailable:\n{sat_img_opt}')
+    sat_opt = dict(instrument=instrument, **_d)
+
+    regex = re.compile(r'^(?=.*_[0-9]{8}_[0-9]{6}_)'
+                       + ''.join([f'(?=.*{v})' for v in sat_opt.values()])
+                       + '.+')    
+    fnames = [Path(i).name 
+              for i in zip_obj.namelist() if i.endswith(ext)]
+    filename = sorted(filter(regex.match, fnames),
+                      key=lambda x: sort_by_timedelta(x, dt))[0]
+
+    timestamp = datetime.strptime(re.findall(r'(_[0-9]{8}_[0-9]{6}_)',
+                                             str(filename))[0],
+                                  '_%Y%m%d_%H%M%S_')
+    return f'{dt:%Y%m%d}/{filename}', timestamp
+
+
 def get_nearest_url(dt, instrument, channel, platform,
                     project_name=project_name, ext='tif'):
     sat_img_opt = get_avail_sat_img_opt()
@@ -119,7 +146,7 @@ def download_file(url, save_dir=None, mkdir=True, **req_kw):
         return img_req.status_code
 
 
-def read_raster_stereographic(filename):
+def read_raster_stereo(filename):
     """
     Read the image and essential metadata from a GeoTIFF file
 
