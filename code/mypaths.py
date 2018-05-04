@@ -14,6 +14,7 @@ igp_data_dir = Path('/media')/os.getenv('USER')/'Elements'/'IGP'/'data'
 alliance_dir = igp_data_dir/'total_backup_Alliance_20180308'
 masin_dir = igp_data_dir/'masin'
 sat_dir = igp_data_dir/'sat'
+ostia_dir = igp_data_dir/'ostia'
 
 # Output directories
 plotdir = curdir/'figures'

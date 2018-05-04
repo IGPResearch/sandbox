@@ -10,7 +10,7 @@ import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.offsetbox import AnchoredText
-# from pathlib import Path
+from pathlib import Path
 from tempfile import mkdtemp
 import xarray as xr
 from zipfile import ZipFile
@@ -39,7 +39,7 @@ sat_opts = [
 
 # Paths
 if use_tmp_dir:
-    EXTRACTDIR = mkdtemp()
+    EXTRACTDIR = Path(mkdtemp())
 else:
     EXTRACTDIR = mypaths.sat_dir  # mkdtemp()
 PLOTDIR = mypaths.plotdir / 'flight_track_satellite'
