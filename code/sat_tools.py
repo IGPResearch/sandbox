@@ -13,9 +13,9 @@ import requests
 
 import mypaths
 
-URL_BASE = 'http://www.sat.dundee.ac.uk/customers/{project_name}/data/{dt:%Y%m%d}'
+URL_BASE = 'http://www.sat.dundee.ac.uk/customers/{project}/data/{dt:%Y%m%d}'
 
-project_name = 'renfrew_afis'
+project = 'renfrew_afis'
 
 
 def get_avail_sat_img_opt():
@@ -45,8 +45,8 @@ def get_nearest_zfile(zip_obj, dt, instrument, channel, platform,
 
     regex = re.compile(r'^(?=.*_[0-9]{8}_[0-9]{6}_)'
                        + ''.join([f'(?=.*{v})' for v in sat_opt.values()])
-                       + '.+')    
-    fnames = [Path(i).name 
+                       + '.+')
+    fnames = [Path(i).name
               for i in zip_obj.namelist() if i.endswith(ext)]
     filename = sorted(filter(regex.match, fnames),
                       key=lambda x: sort_by_timedelta(x, dt))[0]
@@ -58,7 +58,7 @@ def get_nearest_zfile(zip_obj, dt, instrument, channel, platform,
 
 
 def get_nearest_url(dt, instrument, channel, platform,
-                    project_name=project_name, ext='tif'):
+                    project=project, ext='tif'):
     sat_img_opt = get_avail_sat_img_opt()
 
     opt = sat_img_opt[instrument]
@@ -74,7 +74,7 @@ def get_nearest_url(dt, instrument, channel, platform,
                        + ''.join([f'(?=.*{v})' for v in sat_opt.values()])
                        + '.+')
 
-    url_dir = URL_BASE.format(project_name=project_name, dt=dt)
+    url_dir = URL_BASE.format(project=project, dt=dt)
     fnames = url_listdir(url_dir, ext='tif')
     filename = sorted(filter(regex.match,
                              map(str, fnames)),
@@ -93,30 +93,6 @@ def url_listdir(url, ext, parser='html.parser'):
     return [Path(node.get('href'))
             for node in soup.find_all('a')
             if node.get('href', '').endswith(ext)]
-
-
-def _get_sat_name_options(dundee_folder_url, ext='.png'):
-    """
-    Note: works with old, instrument-wise format
-
-    TODO: use regex for fname parsing
-    """
-    fnames = url_listdir(dundee_folder_url, ext)
-    combinations = list(set(['_'.join(str(fname.with_suffix('')).split('_')[4:]) for fname in fnames]))
-    sat_img_opt = dict()
-    for comb in combinations:
-        params = comb.split('_')
-        if len(params) == 3:
-            try:
-                sat_img_opt[params[1]].append(dict(platform=params[2], channel=params[0]))
-            except KeyError:
-                sat_img_opt[params[1]] = [dict(platform=params[2], channel=params[0])]
-        elif len(params) == 4:
-            try:
-                sat_img_opt[params[2]].append(dict(platform=params[2], channel='_'.join(params[0:2])))
-            except KeyError:
-                sat_img_opt[params[2]] = [dict(platform=params[2], channel='_'.join(params[0:2]))]
-    return sat_img_opt
 
 
 def download_file(url, save_dir=None, mkdir=True, **req_kw):
