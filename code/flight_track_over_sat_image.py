@@ -22,6 +22,9 @@ from cart import ukmo_igp_map
 
 use_tmp_dir = False
 
+add_sea_ice = 'amsr2'
+# TODO: multiprocessing
+
 sat_opts = [
     # dict(instrument="avhrr", platform="metopb", channel="band2_vis"),
     # dict(instrument="avhrr", platform="noaa19", channel="band2_vis"),
@@ -44,6 +47,12 @@ else:
     EXTRACTDIR = mypaths.sat_dir  # mkdtemp()
 PLOTDIR = mypaths.plotdir / 'flight_track_satellite'
 PLOTDIR.mkdir(parents=True, exist_ok=True)
+if add_sea_ice.lower() == 'amsr2':
+    SICDIR = mypaths.amsr2_dir
+elif add_sea_ice.lower() == 'ostia':
+    raise NotImplementedError
+else:
+    pass
 
 # Plotting parameters
 mapkw = dict(transform=ccrs.PlateCarree())
