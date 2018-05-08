@@ -2,20 +2,100 @@
 """
 Functions to work with satellite imagery
 """
-from bs4 import BeautifulSoup
-import cartopy.crs as ccrs
 from datetime import datetime
 import json
 from pathlib import Path
-import rasterio
 import re
+import subprocess as sb
+
+from bs4 import BeautifulSoup
+import cartopy.crs as ccrs
+import h5py
+import rasterio
 import requests
 
 import mypaths
 
-URL_BASE = 'http://www.sat.dundee.ac.uk/customers/{project}/data/{dt:%Y%m%d}'
+DUNDEE_URL = 'http://www.sat.dundee.ac.uk/customers/{project}/data/{dt:%Y%m%d}'
+PROJECT = 'renfrew_afis'
 
-project = 'renfrew_afis'
+AMSR2_URL_BASE = 'https://seaice.uni-bremen.de/data/amsr2/asi_daygrid_swath/'
+COORD_URL_BASE = 'https://seaice.uni-bremen.de/data/grid_coordinates/'
+
+
+def get_amsr2(dt, save_dir=None, res='n6250'):
+    """
+    Get AMSR2 data and matching coordinates from an HDF file originally
+    downloaded from the University of Bremen sea ice data archive
+
+    Basically a wrapper of get_amsr2_coords_file and get_amsr2_data_file funcs
+    """
+    # TODO: different directories for coords and data
+    coords_file = get_amsr2_coords_file(save_dir=save_dir, res=res)
+    with h5py.File(coords_file) as f:
+        lons = f['Longitude'].value
+        lats = f['Latitude'].value
+    data_file = get_amsr2_data_file(dt=dt, save_dir=save_dir, res=res)
+    with h5py.File(data_file) as f:
+        data = f['ASI Ice Concentration'].value
+    return lons, lats, data
+
+
+def get_amsr2_coords_file(save_dir=None, res='n6250', h5=True):
+    """
+    Download (if the file is already not in the target directory) the file with
+    longitude and latitude coordinates
+    from the University of Bremen's http server
+
+    Arguments
+    ---------
+    save_dir: pathlib.Path, optional
+        Save destination
+    res: str, optional
+        Resolution ([n|s][2500|3125|6250|12500])
+    h5: bool, optional
+        Convert from HDF4 to HDF5 using h4toh5 command (should be installed!)
+
+    Returns
+    -------
+    Full Path to the file
+    """
+    url = (Path(COORD_URL_BASE) / res
+           / f'LongitudeLatitudeGrid-{res}-Arctic.hdf')
+    save_to = download_file(url, save_dir=save_dir)
+    if h5:
+        completed = sb.run(['h4toh5', save_to])
+        assert completed.returncode == 0, f'{completed.args} failed'
+    return save_to
+
+
+def get_amsr2_data_file(dt, save_dir=None, res='n6250', h5=True):
+    """
+    Download (if the file is already not in the target directory) AMSR2 sea ice
+    data from the University of Bremen's http server
+
+    Arguments
+    ---------
+    dt: datetime.datetime
+        Date of the required sea ice data
+    save_dir: pathlib.Path, optional
+        Save destination
+    res: str, optional
+        Resolution ([n|s][2500|3125|6250|12500])
+    h5: bool, optional
+        Convert from HDF4 to HDF5 using h4toh5 command (should be installed!)
+
+    Returns
+    -------
+    Full Path to the file
+    """
+    url = (Path(AMSR2_URL_BASE) / res / f'{dt:%Y}' / f'{dt:%m}'.lower()
+           / 'Arctic' / f'asi-AMSR2-{res}-{dt:%Y%m%d}-v5.hdf')
+    save_to = download_file(url, save_dir=save_dir)
+    if h5:
+        completed = sb.run(['h4toh5', save_to])
+        assert completed.returncode == 0, f'{completed.args} failed'
+    return save_to
 
 
 def get_avail_sat_img_opt():
@@ -58,7 +138,7 @@ def get_nearest_zfile(zip_obj, dt, instrument, channel, platform,
 
 
 def get_nearest_url(dt, instrument, channel, platform,
-                    project=project, ext='tif'):
+                    project=PROJECT, ext='tif'):
     sat_img_opt = get_avail_sat_img_opt()
 
     opt = sat_img_opt[instrument]
@@ -74,7 +154,7 @@ def get_nearest_url(dt, instrument, channel, platform,
                        + ''.join([f'(?=.*{v})' for v in sat_opt.values()])
                        + '.+')
 
-    url_dir = URL_BASE.format(project=project, dt=dt)
+    url_dir = DUNDEE_URL.format(project=project, dt=dt)
     fnames = url_listdir(url_dir, ext='tif')
     filename = sorted(filter(regex.match,
                              map(str, fnames)),
@@ -115,11 +195,10 @@ def download_file(url, save_dir=None, mkdir=True, **req_kw):
         with save_to.open('wb') as file:
             # write to file
             file.write(img_req.content)
-        return 0
     else:
         print('Failed with {} ({})'.format(img_req.status_code,
                                            img_req.reason))
-        return img_req.status_code
+    return save_to
 
 
 def read_raster_stereo(filename):
