@@ -11,6 +11,7 @@ import subprocess as sb
 from bs4 import BeautifulSoup
 import cartopy.crs as ccrs
 import h5py
+import numpy as np
 import rasterio
 import requests
 
@@ -23,7 +24,7 @@ AMSR2_URL_BASE = 'https://seaice.uni-bremen.de/data/amsr2/asi_daygrid_swath/'
 COORD_URL_BASE = 'https://seaice.uni-bremen.de/data/grid_coordinates/'
 
 
-def get_amsr2(dt, save_dir=None, res='n6250'):
+def get_amsr2(dt, save_dir=None, res='n6250', mask_invalid=True):
     """
     Get AMSR2 data and matching coordinates from an HDF file originally
     downloaded from the University of Bremen sea ice data archive
@@ -33,11 +34,13 @@ def get_amsr2(dt, save_dir=None, res='n6250'):
     # TODO: different directories for coords and data
     coords_file = get_amsr2_coords_file(save_dir=save_dir, res=res)
     with h5py.File(coords_file) as f:
-        lons = f['Longitude'].value
-        lats = f['Latitude'].value
+        lons = f['Longitudes'].value
+        lats = f['Latitudes'].value
     data_file = get_amsr2_data_file(dt=dt, save_dir=save_dir, res=res)
     with h5py.File(data_file) as f:
         data = f['ASI Ice Concentration'].value
+    if mask_invalid:
+        data = np.ma.masked_invalid(data)
     return lons, lats, data
 
 
@@ -60,13 +63,22 @@ def get_amsr2_coords_file(save_dir=None, res='n6250', h5=True):
     -------
     Full Path to the file
     """
-    url = (Path(COORD_URL_BASE) / res
-           / f'LongitudeLatitudeGrid-{res}-Arctic.hdf')
-    save_to = download_file(url, save_dir=save_dir)
+    url = f'{COORD_URL_BASE}/{res}/LongitudeLatitudeGrid-{res}-Arctic.hdf'
     if h5:
-        completed = sb.run(['h4toh5', save_to])
-        assert completed.returncode == 0, f'{completed.args} failed'
-    return save_to
+        target = make_save_dir(Path(url).name,
+                               save_dir=save_dir).with_suffix('.h5')
+    else:
+        target = make_save_dir(Path(url).name,
+                               save_dir=save_dir)
+    if target.is_file():
+        return target
+    else:
+        target = download_file(url, save_dir=save_dir)
+        if h5:
+            completed = sb.run(['h4toh5', target])
+            assert completed.returncode == 0, f'{completed.args} failed'
+            target = target.with_suffix('.h5')
+    return target
 
 
 def get_amsr2_data_file(dt, save_dir=None, res='n6250', h5=True):
@@ -89,13 +101,24 @@ def get_amsr2_data_file(dt, save_dir=None, res='n6250', h5=True):
     -------
     Full Path to the file
     """
-    url = (Path(AMSR2_URL_BASE) / res / f'{dt:%Y}' / f'{dt:%m}'.lower()
-           / 'Arctic' / f'asi-AMSR2-{res}-{dt:%Y%m%d}-v5.hdf')
-    save_to = download_file(url, save_dir=save_dir)
+    mon_str = f'{dt:%b}'.lower()
+    url = (f'{AMSR2_URL_BASE}/{res}/{dt:%Y}/{mon_str}'
+           f'/Arctic/asi-AMSR2-{res}-{dt:%Y%m%d}-v5.hdf')
     if h5:
-        completed = sb.run(['h4toh5', save_to])
-        assert completed.returncode == 0, f'{completed.args} failed'
-    return save_to
+        target = make_save_dir(Path(url).name,
+                               save_dir=save_dir).with_suffix('.h5')
+    else:
+        target = make_save_dir(Path(url).name,
+                               save_dir=save_dir)
+    if target.is_file():
+        return target
+    else:
+        target = download_file(url, save_dir=save_dir)
+        if h5:
+            completed = sb.run(['h4toh5', target])
+            assert completed.returncode == 0, f'{completed.args} failed'
+            target = target.with_suffix('.h5')
+    return target
 
 
 def get_avail_sat_img_opt():
@@ -175,29 +198,35 @@ def url_listdir(url, ext, parser='html.parser'):
             if node.get('href', '').endswith(ext)]
 
 
-def download_file(url, save_dir=None, mkdir=True, **req_kw):
-    """
-    Download file using requests
-    """
-    # get request
-    img_req = requests.get(url, **req_kw)
-
-    if img_req.status_code == 200:
-        # save destination
-        if save_dir is None:
-            save_dir = Path('.')
-        else:
-            assert isinstance(save_dir, Path)
-            save_dir.mkdir(parents=True, exist_ok=True)
-        file_name = Path(url).name
-        save_to = save_dir / file_name
-        # open in binary mode
-        with save_to.open('wb') as file:
-            # write to file
-            file.write(img_req.content)
+def make_save_dir(file_name, save_dir=None):
+    if save_dir is None:
+        save_dir = Path('.')
     else:
-        print('Failed with {} ({})'.format(img_req.status_code,
-                                           img_req.reason))
+        assert isinstance(save_dir, Path)
+        save_dir.mkdir(parents=True, exist_ok=True)
+    save_to = save_dir / file_name
+    return save_to
+
+
+def download_file(url, save_dir=None, overwrite=False,  **req_kw):
+    """
+    Download file using requests if it doesn't exist or overwrite is True
+    """
+    # save destination
+    save_to = make_save_dir(Path(url).name, save_dir=save_dir)
+
+    if not save_to.is_file() or overwrite:
+        # get request
+        img_req = requests.get(url, **req_kw)
+
+        if img_req.status_code == 200:
+            # open in binary mode
+            with save_to.open('wb') as file:
+                # write to file
+                file.write(img_req.content)
+        else:
+            print('Failed with {} ({})'.format(img_req.status_code,
+                                               img_req.reason))
     return save_to
 
 
