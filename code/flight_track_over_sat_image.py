@@ -3,27 +3,28 @@
 Satellite image for each flight day at approximate time of the flight
 with flight track (shaded with altitude) overlaid
 """
+import concurrent.futures
 from datetime import datetime, timedelta
+from pathlib import Path
+from tempfile import mkdtemp
+from zipfile import ZipFile
+
 import cartopy.crs as ccrs
 import numpy as np
 import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.offsetbox import AnchoredText
-from pathlib import Path
-from tempfile import mkdtemp
 import xarray as xr
-from zipfile import ZipFile
 # local modules
 import mypaths
-from common_defs import FLIGHTS, MASIN_FILE_MASK
+from common_defs import SCI_FLIGHTS, MASIN_FILE_MASK
 import sat_tools
 from cart import ukmo_igp_map
 
 use_tmp_dir = False
 
 add_sea_ice = 'amsr2'
-# TODO: multiprocessing
 
 sat_opts = [
     # dict(instrument="avhrr", platform="metopb", channel="band2_vis"),
@@ -41,10 +42,11 @@ sat_opts = [
 ]
 
 # Paths
+ARCH_DIR = mypaths.dundee_dir
 if use_tmp_dir:
     EXTRACTDIR = Path(mkdtemp())
 else:
-    EXTRACTDIR = mypaths.sat_dir  # mkdtemp()
+    EXTRACTDIR = mypaths.dundee_dir  # mkdtemp()
 PLOTDIR = mypaths.plotdir / 'flight_track_satellite'
 PLOTDIR.mkdir(parents=True, exist_ok=True)
 if add_sea_ice.lower() == 'amsr2':
@@ -66,8 +68,9 @@ cmap.set_over('#36013f')
 bounds = [0, 200, 300, 500, 1000, 1500, 2000]
 norm = mcolors.BoundaryNorm(boundaries=bounds, ncolors=256)
 
-for flight_id, flight_datestr in FLIGHTS.items():
-    # flight_date = datetime(2018, 3, 1)
+
+def plotter(flight_id):
+    flight_datestr = SCI_FLIGHTS[flight_id]
     flight_date = datetime.strptime(flight_datestr, '%Y%m%d')
     save_sat_dir = EXTRACTDIR  # / f'{flight_date:%Y%m%d}'
     masin_data_path = (mypaths.masin_dir / f'flight{flight_id}'
@@ -94,7 +97,7 @@ for flight_id, flight_datestr in FLIGHTS.items():
             dt = ref_date + timedelta(hours=int(hour))
             print(dt)
             # Get satellite image with given options closest to the flight time
-            arch_file = mypaths.sat_dir / f'{dt:%Y%m%d}.zip'
+            arch_file = ARCH_DIR / f'{dt:%Y%m%d}.zip'
             with ZipFile(arch_file) as z:
                 zfile, tstamp = sat_tools.get_nearest_zfile(z, dt, **sat_opt)
 
@@ -144,4 +147,13 @@ for flight_id, flight_datestr in FLIGHTS.items():
                          f'_{sat_opt_str}.png'),
                         dpi=300, bbox_inches='tight')
             prev_tstamp = tstamp
-            plt.close()
+            plt.close(fig)
+
+
+def main():
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        executor.map(plotter, SCI_FLIGHTS.keys())
+
+
+if __name__ == '__main__':
+    main()
