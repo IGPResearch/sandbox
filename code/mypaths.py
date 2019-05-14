@@ -6,16 +6,16 @@ import os
 from pathlib import Path
 
 # Root of the current repository
-curdir = Path('.').absolute().parent
-sample_dir = curdir/'data'
+curdir = Path(".").absolute().parent
+sample_dir = curdir / "data"
 
 # External data directories
-igp_data_dir = Path('/media')/os.getenv('USER')/'Elements'/'IGP'/'data'
-alliance_dir = igp_data_dir/'total_backup_Alliance_20180308'
-masin_dir = igp_data_dir/'masin'
-dundee_dir = igp_data_dir/'dundee'
-ostia_dir = igp_data_dir/'ostia'
-amsr2_dir = igp_data_dir/'amsr2'
+igp_data_dir = Path("/media") / os.getenv("USER") / "Elements" / "IGP" / "data"
+alliance_dir = igp_data_dir / "total_backup_Alliance_20180308"
+masin_dir = igp_data_dir / "masin"
+dundee_dir = igp_data_dir / "dundee"
+ostia_dir = igp_data_dir / "ostia"
+amsr2_dir = igp_data_dir / "amsr2"
 
 # Output directories
-plotdir = curdir/'figures'
+plotdir = curdir / "figures"

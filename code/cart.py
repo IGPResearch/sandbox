@@ -4,15 +4,21 @@ Collection of functions for cartographic plotting.
 
 Borrows some functions from arke library
 """
-from arke.cart import (get_xy_ticks, add_coastline,
-                       _lambert_xticks, _lambert_yticks)
+from arke.cart import get_xy_ticks, add_coastline, _lambert_xticks, _lambert_yticks
 import cartopy.crs as ccrs
 from cartopy.mpl.gridliner import LONGITUDE_FORMATTER, LATITUDE_FORMATTER
 
 
-def ukmo_igp_map(fig, subplot_grd=111,
-                 clon=-21, clat=68.5, extent=[-34, -7.8, 61, 75.2],
-                 ticks=[5, 1], coast=None, **gridline_kw):
+def ukmo_igp_map(
+    fig,
+    subplot_grd=111,
+    clon=-21,
+    clat=68.5,
+    extent=[-34, -7.8, 61, 75.2],
+    ticks=[5, 1],
+    coast=None,
+    **gridline_kw
+):
     """
     Create axes the Stereographic projection in a given figure
 
