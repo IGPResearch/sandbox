@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # coding: utf-8
 """
 Satellite image for each flight day at approximate time of the flight
@@ -67,23 +68,36 @@ elif add_sea_ice.lower() == "ostia":
 else:
     pass
 
+#
 # Plotting parameters
-mapkw = dict(transform=ccrs.PlateCarree())
-gridline_kw = dict(linestyle=(0, (10, 10)), linewidth=0.5, color="C9")
-igp_map_kw = dict(extent=[-26, -11, 63, 72], ticks=[3, 1])
-zoom_str = ""  # '_zoom'
-sat_stride = 1
-flt_stride = 10
-COAST = dict(scale="50m", facecolor="none", edgecolor="C8", alpha=0.75)
-sic_kw = dict(levels=[15, 80], cmap="cool_r", linewidths=0.5)
-sic_clab_kw = dict(fmt="%2.0f%%", fontsize="x-small", use_clabeltext=True)
-path_effects = [mpe.withStroke(linewidth=0.5, foreground="w")]
+# 
+# Figure-saving parameters
 svfigkw = dict(dpi=300, bbox_inches="tight")
-
+# Standard geodetic transform (do not change!)
+mapkw = dict(transform=ccrs.PlateCarree())
+# Map grid lines style
+gridline_kw = dict(linestyle=(0, (10, 10)), linewidth=0.5, color="C9")
+# Extent of the map and frequency of lon/lat labels
+igp_map_kw = dict(extent=[-26, -11, 63, 72], ticks=[3, 1])
+# Additional string inserted in the file name
+zoom_str = ""  # '_zoom'
+# Coastline style
+COAST = dict(scale="50m", facecolor="none", edgecolor="C8", alpha=0.75)
+# Stride for satellite image array (1 = every point is used)
+sat_stride = 1
+# Stride for flight track points (10 is good enough, because of high time resolution of the data)
+flt_stride = 10
+# Flight track colormap and color levels
 cmap = plt.cm.plasma_r
 cmap.set_over("#36013f")
 bounds = [0, 200, 300, 500, 1000, 1500, 2000]
 norm = mcolors.BoundaryNorm(boundaries=bounds, ncolors=256)
+# Sea ice contours
+sic_kw = dict(levels=[10, 90], colors=["#00FF00", "#007700"], linewidths=1.25)
+# Sea ice contour labels
+sic_clab_kw = dict(fmt="%2.0f%%", fontsize="small", use_clabeltext=True)
+# Sea ice contours path effects
+path_effects = [mpe.withStroke(linewidth=0.25, foreground="k")]
 
 
 def plotter(flight_id):
@@ -146,6 +160,7 @@ def plotter(flight_id):
 
             fig = plt.figure(figsize=(12, 8))
             ax = ukmo_igp_map(fig, coast=COAST, **igp_map_kw, **gridline_kw)
+            ax.tick_params(labelsize="x-large", length=0)
 
             ax.imshow(
                 im[::sat_stride, ::sat_stride],
@@ -170,10 +185,10 @@ def plotter(flight_id):
             lc.set_array(masin_z)
             h = ax.add_collection(lc)
 
-            cb = fig.colorbar(h, ax=ax, extend="max", pad=0.01)
+            cb = fig.colorbar(h, ax=ax, extend="max", pad=0.01, aspect=40)
             cb.ax.tick_params(labelsize="large")
             cb.ax.set_ylabel(
-                f"Altitude ({masin_z.units.strip()})",
+                f"Altitude [{masin_z.units.strip()}]",
                 fontsize="large",
                 rotation=270,
                 labelpad=15,
@@ -211,7 +226,7 @@ def main():
         with concurrent.futures.ProcessPoolExecutor() as executor:
             executor.map(plotter, SCI_FLIGHTS.keys())
     else:
-        for flight_id in SCI_FLIGHTS.keys():
+        for flight_id in ["294"]:  # SCI_FLIGHTS.keys():
             plotter(flight_id)
 
 
